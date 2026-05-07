@@ -58,8 +58,8 @@ client.on('messageCreate', (message) => {
   }
 
 });
-
 client.login(process.env.TOKEN);
+
 const express = require('express');
 const app = express();
 
