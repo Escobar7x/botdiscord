@@ -5,6 +5,8 @@ const {
   PermissionsBitField
 } = require('discord.js');
 
+const express = require('express');
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -23,40 +25,70 @@ client.once('ready', () => {
   console.log('Bot ligado!');
 });
 
-// Setup painel farm
+// COMANDOS DE VENDA + FARM
 client.on('messageCreate', async (message) => {
-
   if (message.author.bot) return;
 
-  if (message.content === '!farmsetup') {
+  const args = message.content.split(' ');
+  const comando = args[0];
+  const valor = Number(args[1]);
 
+  // VENDA NORMAL
+  if (comando === '!venda') {
+    if (!valor) return message.reply('Use: !venda 1000');
+
+    const vendedor = valor * 0.15;
+    const bau = valor - vendedor;
+
+    message.reply(
+      '💰 VENDA REALIZADA\n\n' +
+      '📦 Valor: $' + valor.toFixed(2) + '\n' +
+      '👤 Vendedor recebe: $' + vendedor.toFixed(2) + '\n' +
+      '🏦 Baú recebe: $' + bau.toFixed(2)
+    );
+  }
+
+  // VENDA PARCERIA
+  if (comando === '!parceria') {
+    if (!valor) return message.reply('Use: !parceria 1000');
+
+    const desconto = valor * 0.90;
+    const vendedor = desconto * 0.15;
+    const bau = desconto - vendedor;
+
+    message.reply(
+      '🤝 VENDA PARCERIA\n\n' +
+      '💵 Valor com desconto: $' + desconto.toFixed(2) + '\n' +
+      '👤 Vendedor recebe: $' + vendedor.toFixed(2) + '\n' +
+      '🏦 Baú recebe: $' + bau.toFixed(2)
+    );
+  }
+
+  // PAINEL FARM
+  if (comando === '!farmsetup') {
     const painel = await message.channel.send(
-`📦 CONTROLE DE FARM
-
-Reaja com 📩 para abrir ticket.
-
-Envie no ticket:
-📸 Print da meta no baú
-💰 Print do dinheiro no cofre
-👤 Nome/ID`
+      '📦 CONTROLE DE FARM\n\n' +
+      'Reaja com 📩 para abrir ticket.\n\n' +
+      'Envie no ticket:\n' +
+      '📸 Print da meta no baú\n' +
+      '💰 Print do dinheiro no cofre\n' +
+      '👤 Nome/ID'
     );
 
     await painel.react('📩');
   }
 });
 
-// Abrir e fechar ticket
+// REAÇÃO PARA ABRIR/FECHAR TICKET
 client.on('messageReactionAdd', async (reaction, user) => {
-
   if (user.bot) return;
 
   if (reaction.partial) await reaction.fetch();
 
   const guild = reaction.message.guild;
 
-  // Abrir ticket
+  // ABRIR TICKET FARM
   if (reaction.emoji.name === '📩') {
-
     const canal = await guild.channels.create({
       name: `farm-${user.username}`,
       type: 0,
@@ -70,47 +102,41 @@ client.on('messageReactionAdd', async (reaction, user) => {
           allow: [
             PermissionsBitField.Flags.ViewChannel,
             PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.AttachFiles
+            PermissionsBitField.Flags.AttachFiles,
+            PermissionsBitField.Flags.ReadMessageHistory
           ]
         }
       ]
     });
 
     const ticket = await canal.send(
-`📦 TICKET FARM
-
-Olá <@${user.id}>!
-
-Envie:
-📸 Print da meta no baú
-💰 Print do dinheiro no cofre
-👤 Nome/ID
-
-🔒 Staff reage para fechar ticket.`
+      '📦 TICKET FARM\n\n' +
+      `Olá <@${user.id}>!\n\n` +
+      'Envie:\n' +
+      '📸 Print da meta no baú\n' +
+      '💰 Print do dinheiro no cofre\n' +
+      '👤 Nome/ID\n\n' +
+      '🔒 Staff reage para fechar ticket.'
     );
 
     await ticket.react('🔒');
   }
 
-  // Fechar ticket
+  // FECHAR TICKET FARM
   if (reaction.emoji.name === '🔒') {
-
     if (!reaction.message.channel.name.startsWith('farm-')) return;
 
-    await reaction.message.channel.send(
-'🔒 Ticket será fechado em 5 segundos...'
-    );
+    await reaction.message.channel.send('🔒 Ticket será fechado em 5 segundos...');
 
     setTimeout(() => {
       reaction.message.channel.delete();
     }, 5000);
   }
-
 });
 
 client.login(process.env.TOKEN);
 
-const express = require('express');
+// SERVIDOR WEB PARA RENDER
 const app = express();
 
 app.get('/', (req, res) => {
