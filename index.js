@@ -1,10 +1,21 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { 
+  Client,
+  GatewayIntentBits,
+  Partials,
+  PermissionsBitField
+} = require('discord.js');
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions
+  ],
+  partials: [
+    Partials.Message,
+    Partials.Channel,
+    Partials.Reaction
   ]
 });
 
@@ -12,52 +23,91 @@ client.once('ready', () => {
   console.log('Bot ligado!');
 });
 
-client.on('messageCreate', (message) => {
+// Setup painel farm
+client.on('messageCreate', async (message) => {
 
   if (message.author.bot) return;
 
-  const args = message.content.split(' ');
-  const comando = args[0];
-  const valor = Number(args[1]);
+  if (message.content === '!farmsetup') {
 
-  // Venda normal
-  if (comando === '!venda') {
+    const painel = await message.channel.send(
+`📦 CONTROLE DE FARM
 
-    if (!valor) {
-      return message.reply('Use: !venda 1000');
-    }
+Reaja com 📩 para abrir ticket.
 
-    const vendedor = valor * 0.15;
-    const bau = valor - vendedor;
-
-    message.reply(
-      '💰 VENDA REALIZADA\n\n' +
-      '📦 Valor: $' + valor.toFixed(2) + '\n' +
-      '👤 Vendedor recebe: $' + vendedor.toFixed(2) + '\n' +
-      '🏦 Baú recebe: $' + bau.toFixed(2)
+Envie no ticket:
+📸 Print da meta no baú
+💰 Print do dinheiro no cofre
+👤 Nome/ID`
     );
+
+    await painel.react('📩');
+  }
+});
+
+// Abrir e fechar ticket
+client.on('messageReactionAdd', async (reaction, user) => {
+
+  if (user.bot) return;
+
+  if (reaction.partial) await reaction.fetch();
+
+  const guild = reaction.message.guild;
+
+  // Abrir ticket
+  if (reaction.emoji.name === '📩') {
+
+    const canal = await guild.channels.create({
+      name: `farm-${user.username}`,
+      type: 0,
+      permissionOverwrites: [
+        {
+          id: guild.id,
+          deny: [PermissionsBitField.Flags.ViewChannel]
+        },
+        {
+          id: user.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.AttachFiles
+          ]
+        }
+      ]
+    });
+
+    const ticket = await canal.send(
+`📦 TICKET FARM
+
+Olá <@${user.id}>!
+
+Envie:
+📸 Print da meta no baú
+💰 Print do dinheiro no cofre
+👤 Nome/ID
+
+🔒 Staff reage para fechar ticket.`
+    );
+
+    await ticket.react('🔒');
   }
 
-  // Venda parceria
-  if (comando === '!parceria') {
+  // Fechar ticket
+  if (reaction.emoji.name === '🔒') {
 
-    if (!valor) {
-      return message.reply('Use: !parceria 1000');
-    }
+    if (!reaction.message.channel.name.startsWith('farm-')) return;
 
-    const desconto = valor * 0.90;
-    const vendedor = desconto * 0.15;
-    const bau = desconto - vendedor;
-
-    message.reply(
-      '🤝 VENDA PARCERIA\n\n' +
-      '💵 Valor com desconto: $' + desconto.toFixed(2) + '\n' +
-      '👤 Vendedor recebe: $' + vendedor.toFixed(2) + '\n' +
-      '🏦 Baú recebe: $' + bau.toFixed(2)
+    await reaction.message.channel.send(
+'🔒 Ticket será fechado em 5 segundos...'
     );
+
+    setTimeout(() => {
+      reaction.message.channel.delete();
+    }, 5000);
   }
 
 });
+
 client.login(process.env.TOKEN);
 
 const express = require('express');
