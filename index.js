@@ -21,15 +21,33 @@ client.once('ready', () => {
   console.log('Bot ligado!');
 });
 
-// SISTEMA DE SET
+// MENSAGENS
 client.on('messageCreate', async (message) => {
 
   if (message.author.bot) return;
 
-  // IGNORA COMANDOS
+  // CRIAR CANAL
+  if (message.content.startsWith('!canal ')) {
+
+    const nomeCanal = message.content
+      .replace('!canal ', '')
+      .toLowerCase()
+      .replace(/\s+/g, '-');
+
+    await message.guild.channels.create({
+      name: nomeCanal,
+      type: 0
+    });
+
+    return message.reply(
+      `✅ Canal criado: #${nomeCanal}`
+    );
+  }
+
+  // IGNORA OUTROS COMANDOS
   if (message.content.startsWith('!')) return;
 
-  // VERIFICA NOME E ID
+  // SISTEMA DE SET
   if (
     message.content.toLowerCase().includes('nome') &&
     message.content.toLowerCase().includes('id')
@@ -83,7 +101,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const membro = await interaction.guild.members.fetch(userId);
 
-  const historico = await interaction.channel.messages.fetch({ limit: 10 });
+  const historico = await interaction.channel.messages.fetch({
+    limit: 10
+  });
 
   const msgUsuario = historico.find(
     m => m.author.id === userId
@@ -121,7 +141,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     Capitao: 'CAP'
   };
 
-  // CARGOS DO SEU DISCORD
+  // CARGOS
   const cargos = {
     Soldado: '👮 Soldado',
     Cabo: '👮 Cabo',
@@ -149,10 +169,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   }
 
-  // DAR CARGO PATENTE
+  // DAR CARGO
   await membro.roles.add(cargo);
 
-  // DAR CARGO BAEP
+  // DAR BAEP
   if (cargoBaep) {
     await membro.roles.add(cargoBaep);
   }
@@ -162,7 +182,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     `[${tags[patente]}] ${nome} | ${id}`
   );
 
-  // CONFIRMAÇÃO
+  // RESPOSTA
   await interaction.reply({
     content:
       `✅ SET APLICADO\n\n` +
