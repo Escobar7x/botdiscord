@@ -21,44 +21,79 @@ client.once('ready', () => {
   console.log('Bot ligado!');
 });
 
+// SISTEMA DE SET
 client.on('messageCreate', async (message) => {
+
   if (message.author.bot) return;
+
+  // IGNORA COMANDOS
   if (message.content.startsWith('!')) return;
 
+  // VERIFICA NOME E ID
   if (
     message.content.toLowerCase().includes('nome') &&
     message.content.toLowerCase().includes('id')
   ) {
-    const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`Soldado_${message.author.id}`).setLabel('Soldado').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`Cabo_${message.author.id}`).setLabel('Cabo').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(`Sargento_${message.author.id}`).setLabel('Sargento').setStyle(ButtonStyle.Success)
-    );
 
-    const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`Tenente_${message.author.id}`).setLabel('Tenente').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId(`Capitao_${message.author.id}`).setLabel('Capitão').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId(`Major_${message.author.id}`).setLabel('Major').setStyle(ButtonStyle.Success)
-    );
+    const row1 = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`Soldado_${message.author.id}`)
+          .setLabel('Soldado')
+          .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
+          .setCustomId(`Cabo_${message.author.id}`)
+          .setLabel('Cabo')
+          .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
+          .setCustomId(`Sargento_${message.author.id}`)
+          .setLabel('Sargento')
+          .setStyle(ButtonStyle.Success)
+      );
+
+    const row2 = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`Tenente_${message.author.id}`)
+          .setLabel('Tenente')
+          .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+          .setCustomId(`Capitao_${message.author.id}`)
+          .setLabel('Capitão')
+          .setStyle(ButtonStyle.Danger)
+      );
 
     await message.reply({
       content: '📋 Escolha a patente do membro:',
       components: [row1, row2]
     });
   }
+
 });
 
+// BOTÕES
 client.on(Events.InteractionCreate, async (interaction) => {
+
   if (!interaction.isButton()) return;
 
   const [patente, userId] = interaction.customId.split('_');
+
   const membro = await interaction.guild.members.fetch(userId);
 
   const historico = await interaction.channel.messages.fetch({ limit: 10 });
-  const msgUsuario = historico.find(m => m.author.id === userId);
+
+  const msgUsuario = historico.find(
+    m => m.author.id === userId
+  );
 
   if (!msgUsuario) {
-    return interaction.reply({ content: 'Mensagem do usuário não encontrada.', ephemeral: true });
+    return interaction.reply({
+      content: 'Mensagem do usuário não encontrada.',
+      ephemeral: true
+    });
   }
 
   const conteudo = msgUsuario.content;
@@ -68,7 +103,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (!nomeMatch || !idMatch) {
     return interaction.reply({
-      content: 'Formato inválido. Use:\nNome: João Pedro\nID: 5778',
+      content:
+        'Formato inválido.\n\nUse:\nNome: João Pedro\nID: 5778',
       ephemeral: true
     });
   }
@@ -76,38 +112,72 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const nome = nomeMatch[1].trim();
   const id = idMatch[1].trim();
 
+  // TAGS
   const tags = {
     Soldado: 'SD',
     Cabo: 'CB',
     Sargento: 'SGT',
     Tenente: 'TEN',
-    Capitao: 'CAP',
-    Major: 'MAJ'
+    Capitao: 'CAP'
   };
 
-  const cargoNome = patente === 'Capitao' ? 'Capitão' : patente;
-  const cargo = interaction.guild.roles.cache.find(r => r.name === cargoNome);
+  // CARGOS DO SEU DISCORD
+  const cargos = {
+    Soldado: '👮 Soldado',
+    Cabo: '👮 Cabo',
+    Sargento: '👮 Sargento III',
+    Tenente: '👮 Tenente',
+    Capitao: '👮 Capitão'
+  };
+
+  const cargoNome = cargos[patente];
+
+  // CARGO BAEP
+  const cargoBaep = interaction.guild.roles.cache.find(
+    r => r.name === 'BAEP'
+  );
+
+  // CARGO PATENTE
+  const cargo = interaction.guild.roles.cache.find(
+    r => r.name === cargoNome
+  );
 
   if (!cargo) {
-    return interaction.reply({ content: `Cargo "${cargoNome}" não encontrado.`, ephemeral: true });
+    return interaction.reply({
+      content: `Cargo "${cargoNome}" não encontrado.`,
+      ephemeral: true
+    });
   }
 
+  // DAR CARGO PATENTE
   await membro.roles.add(cargo);
-  await membro.setNickname(`[${tags[patente]}] ${nome} | ${id}`);
 
+  // DAR CARGO BAEP
+  if (cargoBaep) {
+    await membro.roles.add(cargoBaep);
+  }
+
+  // ALTERAR NICK
+  await membro.setNickname(
+    `[${tags[patente]}] ${nome} | ${id}`
+  );
+
+  // CONFIRMAÇÃO
   await interaction.reply({
     content:
       `✅ SET APLICADO\n\n` +
       `👤 ${membro}\n` +
       `📋 Patente: ${cargoNome}\n` +
-      `🆔 ${id}\n` +
+      `🆔 ID: ${id}\n` +
       `📢 Responsável: ${interaction.user}`,
     ephemeral: false
   });
+
 });
 
 client.login(process.env.TOKEN);
 
+// RENDER
 const app = express();
 
 app.get('/', (req, res) => {
