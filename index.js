@@ -1,8 +1,10 @@
-const { 
+const {
   Client,
   GatewayIntentBits,
-  Partials,
-  PermissionsBitField
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  Events
 } = require('discord.js');
 
 const express = require('express');
@@ -11,13 +13,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions
-  ],
-  partials: [
-    Partials.Message,
-    Partials.Channel,
-    Partials.Reaction
+    GatewayIntentBits.MessageContent
   ]
 });
 
@@ -25,118 +21,93 @@ client.once('ready', () => {
   console.log('Bot ligado!');
 });
 
-// COMANDOS DE VENDA + FARM
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
+  if (message.content.startsWith('!')) return;
 
-  const args = message.content.split(' ');
-  const comando = args[0];
-  const valor = Number(args[1]);
-
-  // VENDA NORMAL
-  if (comando === '!venda') {
-    if (!valor) return message.reply('Use: !venda 1000');
-
-    const vendedor = valor * 0.15;
-    const bau = valor - vendedor;
-
-    message.reply(
-      '💰 VENDA REALIZADA\n\n' +
-      '📦 Valor: $' + valor.toFixed(2) + '\n' +
-      '👤 Vendedor recebe: $' + vendedor.toFixed(2) + '\n' +
-      '🏦 Baú recebe: $' + bau.toFixed(2)
-    );
-  }
-
-  // VENDA PARCERIA
-  if (comando === '!parceria') {
-    if (!valor) return message.reply('Use: !parceria 1000');
-
-    const desconto = valor * 0.90;
-    const vendedor = desconto * 0.15;
-    const bau = desconto - vendedor;
-
-    message.reply(
-      '🤝 VENDA PARCERIA\n\n' +
-      '💵 Valor com desconto: $' + desconto.toFixed(2) + '\n' +
-      '👤 Vendedor recebe: $' + vendedor.toFixed(2) + '\n' +
-      '🏦 Baú recebe: $' + bau.toFixed(2)
-    );
-  }
-
-  // PAINEL FARM
-  if (comando === '!farmsetup') {
-    const painel = await message.channel.send(
-      '📦 CONTROLE DE FARM\n\n' +
-      'Reaja com 📩 para abrir ticket.\n\n' +
-      'Envie no ticket:\n' +
-      '📸 Print da meta no baú\n' +
-      '💰 Print do dinheiro no cofre\n' +
-      '👤 Nome/ID'
+  if (
+    message.content.toLowerCase().includes('nome') &&
+    message.content.toLowerCase().includes('id')
+  ) {
+    const row1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`Soldado_${message.author.id}`).setLabel('Soldado').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`Cabo_${message.author.id}`).setLabel('Cabo').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(`Sargento_${message.author.id}`).setLabel('Sargento').setStyle(ButtonStyle.Success)
     );
 
-    await painel.react('📩');
+    const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`Tenente_${message.author.id}`).setLabel('Tenente').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId(`Capitao_${message.author.id}`).setLabel('Capitão').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`Major_${message.author.id}`).setLabel('Major').setStyle(ButtonStyle.Success)
+    );
+
+    await message.reply({
+      content: '📋 Escolha a patente do membro:',
+      components: [row1, row2]
+    });
   }
 });
 
-// REAÇÃO PARA ABRIR/FECHAR TICKET
-client.on('messageReactionAdd', async (reaction, user) => {
-  if (user.bot) return;
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isButton()) return;
 
-  if (reaction.partial) await reaction.fetch();
+  const [patente, userId] = interaction.customId.split('_');
+  const membro = await interaction.guild.members.fetch(userId);
 
-  const guild = reaction.message.guild;
+  const historico = await interaction.channel.messages.fetch({ limit: 10 });
+  const msgUsuario = historico.find(m => m.author.id === userId);
 
-  // ABRIR TICKET FARM
-  if (reaction.emoji.name === '📩') {
-    const canal = await guild.channels.create({
-      name: `farm-${user.username}`,
-      type: 0,
-      permissionOverwrites: [
-        {
-          id: guild.id,
-          deny: [PermissionsBitField.Flags.ViewChannel]
-        },
-        {
-          id: user.id,
-          allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.AttachFiles,
-            PermissionsBitField.Flags.ReadMessageHistory
-          ]
-        }
-      ]
+  if (!msgUsuario) {
+    return interaction.reply({ content: 'Mensagem do usuário não encontrada.', ephemeral: true });
+  }
+
+  const conteudo = msgUsuario.content;
+
+  const nomeMatch = conteudo.match(/Nome:\s*(.+)/i);
+  const idMatch = conteudo.match(/ID:\s*(\d+)/i);
+
+  if (!nomeMatch || !idMatch) {
+    return interaction.reply({
+      content: 'Formato inválido. Use:\nNome: João Pedro\nID: 5778',
+      ephemeral: true
     });
-
-    const ticket = await canal.send(
-      '📦 TICKET FARM\n\n' +
-      `Olá <@${user.id}>!\n\n` +
-      'Envie:\n' +
-      '📸 Print da meta no baú\n' +
-      '💰 Print do dinheiro no cofre\n' +
-      '👤 Nome/ID\n\n' +
-      '🔒 Staff reage para fechar ticket.'
-    );
-
-    await ticket.react('🔒');
   }
 
-  // FECHAR TICKET FARM
-  if (reaction.emoji.name === '🔒') {
-    if (!reaction.message.channel.name.startsWith('farm-')) return;
+  const nome = nomeMatch[1].trim();
+  const id = idMatch[1].trim();
 
-    await reaction.message.channel.send('🔒 Ticket será fechado em 5 segundos...');
+  const tags = {
+    Soldado: 'SD',
+    Cabo: 'CB',
+    Sargento: 'SGT',
+    Tenente: 'TEN',
+    Capitao: 'CAP',
+    Major: 'MAJ'
+  };
 
-    setTimeout(() => {
-      reaction.message.channel.delete();
-    }, 5000);
+  const cargoNome = patente === 'Capitao' ? 'Capitão' : patente;
+  const cargo = interaction.guild.roles.cache.find(r => r.name === cargoNome);
+
+  if (!cargo) {
+    return interaction.reply({ content: `Cargo "${cargoNome}" não encontrado.`, ephemeral: true });
   }
+
+  await membro.roles.add(cargo);
+  await membro.setNickname(`[${tags[patente]}] ${nome} | ${id}`);
+
+  await interaction.reply({
+    content:
+      `✅ SET APLICADO\n\n` +
+      `👤 ${membro}\n` +
+      `📋 Patente: ${cargoNome}\n` +
+      `🆔 ${id}\n` +
+      `📢 Responsável: ${interaction.user}`,
+    ephemeral: false
+  });
 });
 
 client.login(process.env.TOKEN);
 
-// SERVIDOR WEB PARA RENDER
 const app = express();
 
 app.get('/', (req, res) => {
