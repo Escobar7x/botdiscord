@@ -26,6 +26,12 @@ client.on('messageCreate', async (message) => {
   // =========================================
   if (message.content.startsWith('!categoria ')) {
 
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply(
+        '❌ Você precisa ser administrador.'
+      );
+    }
+
     const texto =
       message.content.replace('!categoria ', '');
 
@@ -33,7 +39,7 @@ client.on('messageCreate', async (message) => {
 
     if (partes.length < 2) {
       return message.reply(
-        'Use: !categoria BAEP | conduta,regras'
+        'Use: !categoria BAEP | regras,avisos'
       );
     }
 
@@ -76,6 +82,12 @@ client.on('messageCreate', async (message) => {
   // =========================================
   if (message.content.startsWith('!canal ')) {
 
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply(
+        '❌ Você precisa ser administrador.'
+      );
+    }
+
     const nomeCanal =
       message.content
         .replace('!canal ', '')
@@ -94,9 +106,15 @@ client.on('messageCreate', async (message) => {
   }
 
   // =========================================
-  // CRIAR CANAL COM MENSAGEM FIXADA
+  // CRIAR CANAL FIXADO
   // =========================================
   if (message.content.startsWith('!canalfixo ')) {
+
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply(
+        '❌ Você precisa ser administrador.'
+      );
+    }
 
     const texto =
       message.content.replace('!canalfixo ', '');
@@ -141,24 +159,46 @@ client.on('messageCreate', async (message) => {
   // =========================================
   if (message.content.startsWith('!cargos ')) {
 
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply(
+        '❌ Você precisa ser administrador.'
+      );
+    }
+
     const lista =
       message.content
         .replace('!cargos ', '')
         .split(',');
+
+    let criados = [];
 
     for (const cargoNome of lista) {
 
       const nomeFormatado =
         cargoNome.trim();
 
+      // IGNORAR VAZIO
+      if (!nomeFormatado) continue;
+
+      // VERIFICAR SE JÁ EXISTE
+      const existe =
+        message.guild.roles.cache.find(
+          r => r.name === nomeFormatado
+        );
+
+      if (existe) continue;
+
+      // CRIAR CARGO
       await message.guild.roles.create({
         name: nomeFormatado
       });
 
+      criados.push(nomeFormatado);
+
     }
 
     return message.reply(
-      '✅ Todos os cargos foram criados.'
+      `✅ ${criados.length} cargos criados.`
     );
 
   }
