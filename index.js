@@ -4,7 +4,8 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  Events
+  Events,
+  PermissionsBitField
 } = require('discord.js');
 
 const express = require('express');
@@ -22,28 +23,26 @@ client.once('ready', () => {
 });
 
 const perguntasWL = [
-  'Qual seu nome no jogo?',
-  'Qual seu ID no jogo?',
-  'Qual seu nome e idade?',
-  'Quanto tempo joga FiveM?',
-  'Já participou de alguma cidade RP? Qual?',
-  'O que significa Amor à Vida no RP?',
-  'Você está sozinho e 5 pessoas armadas anunciam assalto. O que você faz?',
-  'O que é RDM?',
-  'O que é VDM?',
-  'É permitido atropelar alguém sem motivo RP?',
-  'O que significa PowerGaming?',
-  'Cite um exemplo de PowerGaming.',
-  'O que é MetaGaming?',
-  'Pode usar informações do Discord/live dentro do RP?',
-  'O que é Combat Log?',
-  'É permitido sair do jogo durante ação RP?',
-  'Como deve funcionar uma abordagem RP?',
-  'É permitido matar alguém sem desenvolvimento de RP?',
-  'É permitido desrespeitar membros ou staff no Discord?',
-  'O que deve fazer ao encontrar um bug na cidade?',
-  'Um amigo seu quebra regra em ação RP. O que você faria?',
-  'Por que devemos aprovar sua WL no Distrito 011 RP?'
+  '1. Qual seu nome e idade?',
+  '2. Quanto tempo joga FiveM?',
+  '3. Já participou de alguma cidade RP? Qual?',
+  '4. O que significa Amor à Vida no RP?',
+  '5. Você está sozinho e 5 pessoas armadas anunciam assalto. O que você faz?',
+  '6. O que é RDM?',
+  '7. O que é VDM?',
+  '8. É permitido atropelar alguém sem motivo RP?',
+  '9. O que significa PowerGaming?',
+  '10. Cite um exemplo de PowerGaming.',
+  '11. O que é MetaGaming?',
+  '12. Pode usar informações do Discord/live dentro do RP?',
+  '13. O que é Combat Log?',
+  '14. É permitido sair do jogo durante ação RP?',
+  '15. Como deve funcionar uma abordagem RP?',
+  '16. É permitido matar alguém sem desenvolvimento de RP?',
+  '17. É permitido desrespeitar membros ou staff no Discord?',
+  '18. O que deve fazer ao encontrar um bug na cidade?',
+  '19. Um amigo seu quebra regra em ação RP. O que você faria?',
+  '20. Por que devemos aprovar sua WL no Distrito 011 RP?'
 ];
 
 const respostasWL = {};
@@ -52,10 +51,6 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   if (message.content === '!wl') {
-    if (message.channel.name !== '📝・liberar-wl') {
-      return message.reply('Use esse comando no canal 📝・liberar-wl');
-    }
-
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('abrir_wl')
@@ -67,14 +62,15 @@ client.on('messageCreate', async (message) => {
       content:
         '📋 **WL OFICIAL — DISTRITO 011 RP**\n\n' +
         'Clique no botão abaixo para iniciar sua whitelist.\n\n' +
-        '⏰ Você terá **5 minutos para responder cada pergunta**.',
+        '✅ Será aberto um ticket privado.\n' +
+        '⏰ Você terá 5 minutos por pergunta.',
       components: [row]
     });
   }
 
-  if (respostasWL[message.author.id]) {
-    const dados = respostasWL[message.author.id];
+  const dados = respostasWL[message.author.id];
 
+  if (dados && message.channel.id === dados.canalId) {
     clearTimeout(dados.timer);
 
     dados.respostas.push(message.content);
@@ -93,17 +89,17 @@ client.on('messageCreate', async (message) => {
       let textoFinal = '';
 
       perguntasWL.forEach((pergunta, index) => {
-        textoFinal += `**${index + 1}. ${pergunta}**\n${dados.respostas[index]}\n\n`;
+        textoFinal += `**${pergunta}**\n${dados.respostas[index]}\n\n`;
       });
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`aprovar_${message.author.id}`)
+          .setCustomId(`aprovar_${message.author.id}_${message.channel.id}`)
           .setLabel('Aprovar')
           .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
-          .setCustomId(`reprovar_${message.author.id}`)
+          .setCustomId(`reprovar_${message.author.id}_${message.channel.id}`)
           .setLabel('Reprovar')
           .setStyle(ButtonStyle.Danger)
       );
@@ -128,6 +124,10 @@ client.on('messageCreate', async (message) => {
         message.channel.send(
           `${message.author} ❌ Sua WL foi cancelada por inatividade.`
         ).catch(() => {});
+
+        setTimeout(() => {
+          message.channel.delete().catch(() => {});
+        }, 5000);
       }
     }, 300000);
 
@@ -150,9 +150,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
 
+    const canal = await interaction.guild.channels.create({
+      name: `wl-${interaction.user.username}`,
+      type: 0,
+      permissionOverwrites: [
+        {
+          id: interaction.guild.id,
+          deny: [PermissionsBitField.Flags.ViewChannel]
+        },
+        {
+          id: interaction.user.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory
+          ]
+        }
+      ]
+    });
+
     respostasWL[interaction.user.id] = {
       etapa: 0,
       respostas: [],
+      canalId: canal.id,
       timer: null
     };
 
@@ -160,24 +180,36 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (respostasWL[interaction.user.id]) {
         delete respostasWL[interaction.user.id];
 
-        interaction.followUp({
-          content: '❌ Sua WL foi cancelada por inatividade.',
-          ephemeral: true
-        }).catch(() => {});
+        canal.send(
+          `<@${interaction.user.id}> ❌ Sua WL foi cancelada por inatividade.`
+        ).catch(() => {});
+
+        setTimeout(() => {
+          canal.delete().catch(() => {});
+        }, 5000);
       }
     }, 300000);
 
+    await canal.send(
+      `📋 **WL INICIADA**\n\n` +
+      `Olá <@${interaction.user.id}>.\n\n` +
+      `Responda uma pergunta por vez.\n` +
+      `⏰ Você tem 5 minutos por pergunta.\n\n` +
+      `📋 **Pergunta 1/${perguntasWL.length}**\n\n` +
+      `${perguntasWL[0]}`
+    );
+
     return interaction.reply({
-      content:
-        `📋 **Pergunta 1/${perguntasWL.length}**\n\n` +
-        `${perguntasWL[0]}\n\n` +
-        `⏰ Você tem 5 minutos para responder no canal.`,
+      content: `✅ Seu ticket de WL foi criado: ${canal}`,
       ephemeral: true
     });
   }
 
   if (interaction.customId.startsWith('aprovar_')) {
-    const userId = interaction.customId.split('_')[1];
+    const partes = interaction.customId.split('_');
+    const userId = partes[1];
+    const canalId = partes[2];
+
     const membro = await interaction.guild.members.fetch(userId).catch(() => null);
 
     if (!membro) {
@@ -215,6 +247,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
 
+    const canalTicket = interaction.guild.channels.cache.get(canalId);
+    if (canalTicket) {
+      await canalTicket.send('✅ Sua WL foi aprovada! O ticket será fechado em 10 segundos.');
+      setTimeout(() => canalTicket.delete().catch(() => {}), 10000);
+    }
+
     return interaction.update({
       content:
         `✅ **WL APROVADA**\n\n` +
@@ -225,7 +263,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.customId.startsWith('reprovar_')) {
-    const userId = interaction.customId.split('_')[1];
+    const partes = interaction.customId.split('_');
+    const userId = partes[1];
+    const canalId = partes[2];
+
     const membro = await interaction.guild.members.fetch(userId).catch(() => null);
 
     const canalResultado = interaction.guild.channels.cache.find(
@@ -240,6 +281,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
     }
 
+    const canalTicket = interaction.guild.channels.cache.get(canalId);
+    if (canalTicket) {
+      await canalTicket.send('❌ Sua WL foi reprovada. O ticket será fechado em 10 segundos.');
+      setTimeout(() => canalTicket.delete().catch(() => {}), 10000);
+    }
+
     return interaction.update({
       content:
         `❌ **WL REPROVADA**\n\n` +
@@ -252,6 +299,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.login(process.env.TOKEN);
 
+// RENDER
 const app = express();
 
 app.get('/', (req, res) => {
